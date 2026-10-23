@@ -1,32 +1,82 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>JOLLY GAME</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>JOLLY ESCAPE ADVENTURE</title>
 <style>
-body{margin:0;background:black;color:white;text-align:center;font-family:Arial}
-h1{background:red;margin:0;padding:8px;font-size:20px}
-#score{color:yellow;background:#222;padding:5px}
-button{padding:15px 25px;font-size:20px;margin:5px;border-radius:10px;border:none;font-weight:bold}
-#game{width:95%;height:220px;background:#111;margin:auto;position:relative;border:2px solid red;overflow:hidden}
-#man{position:absolute;left:20px;bottom:5px;font-size:35px}
-.bad{position:absolute;right:0;bottom:5px;font-size:32px}
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Fredoka',Arial}
+body{background:linear-gradient(#87CEEB,#FFD93D);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+#top{background:linear-gradient(90deg,#FF0066,#FF9A00);padding:10px;display:flex;justify-content:space-between;align-items:center;color:white;text-shadow:2px 2px 0 #000}
+#top h1{font-size:18px}
+#stats{display:flex;gap:12px;font-size:16px}
+#canvasWrap{flex:1;position:relative}
+canvas{width:100%;height:100%;display:block}
+#controls{position:absolute;bottom:10px;width:100%;display:flex;justify-content:space-between;padding:0 15px;pointer-events:none}
+#controls button{pointer-events:auto;padding:16px 28px;border-radius:20px;border:4px solid #000;font-size:18px;font-weight:800;box-shadow:4px 4px 0 #000}
+#jumpBtn{background:#00FF88}
+#startBtn{background:#FFEA00;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px;padding:20px 40px;z-index:10;display:block;animation:bounce 0.8s infinite}
+@keyframes bounce{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.1)}}
+#msg{position:absolute;top:20%;width:100%;text-align:center;color:white;font-size:22px;text-shadow:3px 3px 0 #000;z-index:5}
 </style>
 </head>
 <body>
-<h1>😱 JOLLY ESCAPE 😱</h1>
-<div id="score">Score 0 | Best 0</div>
-<button onclick="start()" style="background:yellow">▶️ START</button>
-<button onclick="jump()" style="background:#25D366;color:white">⬆️ JUMP</button>
-<div id="game"><div id="man">🏃</div></div>
-<p>Tap START then JUMP to avoid 👹💀</p>
+<div id="top"><h1>🌈 JOLLY ADVENTURE 🌈</h1><div id="stats"><span id="coin">💰 0</span><span id="score">⭐ 0</span><span id="best">🏆 0</span></div></div>
+<div id="canvasWrap">
+<canvas id="c"></canvas>
+<div id="msg">Tap START to run! <br> Collect 💰 Jump over 👹</div>
+<button id="startBtn" onclick="startGame()">▶️ PLAY NOW</button>
+<div id="controls"><button id="jumpBtn" ontouchstart="doJump()" onmousedown="doJump()">⬆️ JUMP</button><button style="background:#FF66CC" onclick="startGame()">🔄 RETRY</button></div>
+</div>
 <script>
-let man=document.getElementById('man'),game=document.getElementById('game'),sc=document.getElementById('score');
-let score=0,best=localStorage.jbest||0,play=false,jumpin=false,t;
-sc.innerText='Score 0 | Best '+best;
-function start(){score=0;play=true;man.innerText='🏃';document.querySelectorAll('.bad').forEach(e=>e.remove());clearInterval(t);t=setInterval(newBad,1100)}
-function newBad(){if(!play)return;let b=document.createElement('div');b.className='bad';b.innerText=['👹','💀','🔪'][score%3];game.appendChild(b);let x=0;let m=setInterval(()=>{if(!play){clearInterval(m);return}x+=7;b.style.right=x+'px';if(x>270&&x<330){if(!jumpin){play=false;clearInterval(t);man.innerText='😵';if(score>best){best=score;localStorage.jbest=best}sc.innerText='OVER! Score '+score+' Best '+best;alert('Game Over! Score '+score)}}if(x>350){clearInterval(m);b.remove()}},25);let s=setInterval(()=>{if(!play){clearInterval(s);return}score++;sc.innerText='Score '+score+' Best '+best},100)}
-function jump(){if(jumpin||!play)return;jumpin=true;let h=0;let u=setInterval(()=>{h+=18;man.style.bottom=(5+h)+'px';if(h>90){clearInterval(u);let d=setInterval(()=>{h-=18;man.style.bottom=(5+h)+'px';if(h<=0){clearInterval(d);jumpin=false}},20)}},20)}
+const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
+let W,H,player,obstacles,coins,clouds,score,coinCount,best,gameSpeed,playing,frame;
+best=localStorage.jollyBest||0;
+document.getElementById('best').innerText='🏆 '+best;
+function resize(){W=canvas.width=canvasWrap.clientWidth*2;H=canvas.height=canvasWrap.clientHeight*2}
+let canvasWrap=document.getElementById('canvasWrap'); resize(); window.onresize=resize;
+class Player{constructor(){this.x=80;this.y=0;this.w=50;this.h=50;this.vy=0;this.grounded=false;this.jumping=false}
+update(){this.vy+=1.2; this.y+=this.vy; if(this.y+H*0.1> H-100){this.y=H-100-this.h; this.vy=0; this.grounded=true; this.jumping=false} }
+jump(){if(this.grounded){this.vy=-26; this.grounded=false; this.jumping=true}}
+draw(){let bob=this.grounded?Math.sin(frame*0.3)*4:0; ctx.font='50px Arial'; ctx.fillText(this.jumping?'🦸':'🏃',this.x,this.y+this.h+bob)}}
+function startGame(){
+player=new Player(); obstacles=[]; coins=[]; clouds=[]; score=0; coinCount=0; gameSpeed=6; playing=true; frame=0;
+for(let i=0;i<5;i++) clouds.push({x:Math.random()*W,y:Math.random()*200+20,s:Math.random()*1+0.5});
+document.getElementById('startBtn').style.display='none'; document.getElementById('msg').innerText='';
+loop();
+}
+function doJump(){if(player) player.jump()}
+function loop(){
+if(!playing) return; frame++; ctx.clearRect(0,0,W,H);
+// sky
+let grad=ctx.createLinearGradient(0,0,0,H); grad.addColorStop(0,'#87CEEB'); grad.addColorStop(1,'#FFF6A0'); ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+// clouds
+ctx.font='40px Arial'; clouds.forEach(cl=>{cl.x-=gameSpeed*cl.s; if(cl.x<-50) cl.x=W+50; ctx.fillText('☁️',cl.x,cl.y)});
+// ground
+ctx.fillStyle='#2ECC71'; ctx.fillRect(0,H-60,W,60); ctx.fillStyle='#27AE60'; ctx.fillRect(0,H-60,W,10);
+// spawn
+if(frame%90==0){if(Math.random()<0.7){obstacles.push({x:W,y:H-60-45,w:40,h:45,type:Math.random()>0.5?'👹':'🌵'})} else {coins.push({x:W,y:H-140-Math.random()*80,w:30,h:30})}}
+if(frame%200==0) gameSpeed+=0.3;
+player.update(); player.draw();
+ctx.font='40px Arial';
+obstacles.forEach((o,i)=>{
+o.x-=gameSpeed; ctx.fillText(o.type,o.x,o.y+o.h);
+if(o.x<player.x+player.w-10 && o.x+o.w>player.x+10 && o.y<player.y+player.h && o.y+o.h>player.y){playing=false; end() }
+if(o.x<-50) obstacles.splice(i,1);
+});
+coins.forEach((c,i)=>{
+c.x-=gameSpeed; ctx.fillText('💰',c.x,c.y);
+if(c.x<player.x+player.w && c.x+c.w>player.x && c.y<player.y+player.h && c.y+c.h>player.y){coinCount++; coins.splice(i,1); document.getElementById('coin').innerText='💰 '+coinCount}
+});
+score+=0.1; document.getElementById('score').innerText='⭐ '+Math.floor(score);
+requestAnimationFrame(loop);
+}
+function end(){
+if(Math.floor(score)>best){best=Math.floor(score); localStorage.jollyBest=best; document.getElementById('best').innerText='🏆 '+best}
+document.getElementById('msg').innerHTML=`💀 CAUGHT!<br>Score ${Math.floor(score)}<br>Coins ${coinCount}<br><small>Tap RETRY</small>`;
+document.getElementById('startBtn').style.display='block'; document.getElementById('startBtn').innerText='🔄 PLAY AGAIN';
+}
+canvas.addEventListener('touchstart',()=>doJump()); document.addEventListener('keydown',e=>{if(e.code=='Space') doJump()});
 </script>
 </body>
 </html>
