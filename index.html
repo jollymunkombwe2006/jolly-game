@@ -42,8 +42,13 @@ function updateUI(){
  document.getElementById('score').innerText='Score: '+score;
  document.getElementById('level').innerText='Level: '+level;
  document.getElementById('lives').innerText='❤️'.repeat(lives);
+function jump(){ 
+  if(gameOver || jolly.ducking) return;
+  // ONLY jump if on ground!
+  if(jolly.y >= 338){
+    jolly.vy=jumpForce; 
+  }
 }
-function jump(){ if(!gameOver && !jolly.ducking){ jolly.vy=jumpForce; } }
 function duckOn(){ if(!gameOver) jolly.ducking=true; }
 function duckOff(){ jolly.ducking=false; }
 
