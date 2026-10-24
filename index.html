@@ -2,114 +2,194 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Jolly's Adventure</title>
+<title>Jolly's Adventure - Hard Mode</title>
 <link rel="manifest" href="manifest.json">
 <style>
 body{margin:0;background:linear-gradient(#87CEEB,#A8E6CF);font-family:Arial;text-align:center;touch-action:manipulation}
-h1{color:#ff4500;margin:8px;font-size:22px}
-#gameCanvas{border:4px solid #333;border-radius:12px;background:linear-gradient(#87CEEB 0%, #E0F6FF 60%, #90EE90 60%);}
-#score{font-size:22px;font-weight:bold}
-button{padding:15px 30px;font-size:20px;background:#ff4500;color:white;border:none;border-radius:25px;margin:6px;font-weight:bold}
+h1{color:#ff4500;margin:5px;font-size:20px}
+#stats{display:flex;justify-content:space-around;font-weight:bold;font-size:18px;padding:5px}
+#gameCanvas{border:4px solid #222;border-radius:12px;background:linear-gradient(#87CEEB 0%, #E0F6FF 60%, #7AC74F 60%);}
+.controls{display:flex;justify-content:center;gap:10px;margin-top:8px}
+button{padding:14px 22px;font-size:16px;font-weight:bold;border:none;border-radius:20px;color:white}
+#jumpBtn{background:#ff4500} #duckBtn{background:#2196F3} #restartBtn{background:#333}
+button:active{transform:scale(0.92)}
 </style>
 </head>
 <body>
-<h1>🏃 JOLLY'S ADVENTURE 🌟</h1>
-<div id="score">Score: 0</div>
-<canvas id="gameCanvas" width="360" height="460"></canvas><br>
+<h1>🏃 JOLLY'S ADVENTURE - HARD MODE 🔥</h1>
+<div id="stats">
+<span id="score">Score: 0</span>
+<span id="level">Level: 1</span>
+<span id="lives">❤️❤️❤️</span>
+</div>
+<canvas id="gameCanvas" width="360" height="460"></canvas>
+<div class="controls">
+<button id="duckBtn">DUCK ⬇️</button>
 <button id="jumpBtn">JUMP ⬆️</button>
-<button onclick="startGame()">RESTART 🔄</button>
+<button id="restartBtn" onclick="startGame()">RESTART</button>
+</div>
 <script>
 let canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
-let jolly={x:60,y:340,w:35,h:55,vy:0},gravity=0.7,jumpForce=-15,onGround=true,score=0,gameOver=false,runFrame=0;
-let obstacles=[],frame=0;
+let jolly={x:60,y:340,w:35,h:55,vy:0,ducking:false},gravity=0.8,jumpForce=-16,score=0,level=1,lives=3,gameOver=false,frame=0,runFrame=0;
+let obstacles=[],coins=[],baseSpeed=4.5,coinFrame=0;
 
 function startGame(){
- jolly.y=340;jolly.vy=0;obstacles=[];score=0;frame=0;runFrame=0;gameOver=false;onGround=true;
- document.getElementById('score').innerText='Score: 0';loop();
+ jolly.y=340;jolly.vy=0;jolly.ducking=false;
+ obstacles=[];coins=[];score=0;level=1;lives=3;baseSpeed=4.5;frame=0;runFrame=0;gameOver=false;
+ updateUI(); loop();
 }
-function jump(){ if(!gameOver){jolly.vy=jumpForce;onGround=false;} }
+function updateUI(){
+ document.getElementById('score').innerText='Score: '+score;
+ document.getElementById('level').innerText='Level: '+level;
+ document.getElementById('lives').innerText='❤️'.repeat(lives);
+}
+function jump(){ if(!gameOver && !jolly.ducking){ jolly.vy=jumpForce; } }
+function duckOn(){ if(!gameOver) jolly.ducking=true; }
+function duckOff(){ jolly.ducking=false; }
 
 function drawJolly(x,y){
- runFrame+=0.3;
- let legSwing=Math.sin(runFrame)*15;
+ runFrame+= jolly.ducking?0.1:0.35;
+ let legSwing=jolly.ducking?0:Math.sin(runFrame)*16;
  let armSwing=Math.sin(runFrame)*10;
 
  // shadow
  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(x+17,y+55,18,5,0,0,Math.PI*2);ctx.fill();
+ let drawY = jolly.ducking ? y+20 : y;
+ let drawH = jolly.ducking ? 35 : 55;
 
- // legs - animated running
+ // legs
  ctx.strokeStyle='#1a1a8a';ctx.lineWidth=6;ctx.lineCap='round';
- ctx.beginPath();ctx.moveTo(x+10,y+35);ctx.lineTo(x+5+legSwing,y+52);ctx.stroke(); // left
- ctx.beginPath();ctx.moveTo(x+22,y+35);ctx.lineTo(x+25-legSwing,y+52);ctx.stroke(); // right
- // shoes
- ctx.fillStyle='#ff4500';ctx.beginPath();ctx.ellipse(x+5+legSwing,y+54,10,5,0,0,Math.PI*2);ctx.fill();
- ctx.beginPath();ctx.ellipse(x+25-legSwing,y+54,10,5,0,0,Math.PI*2);ctx.fill();
+ if(!jolly.ducking){
+   ctx.beginPath();ctx.moveTo(x+10,drawY+15);ctx.lineTo(x+5+legSwing,drawY+35);ctx.stroke();
+   ctx.beginPath();ctx.moveTo(x+22,drawY+15);ctx.lineTo(x+25-legSwing,drawY+35);ctx.stroke();
+   ctx.fillStyle='#ff4500';
+   ctx.beginPath();ctx.ellipse(x+5+legSwing,drawY+37,10,5,0,0,Math.PI*2);ctx.fill();
+   ctx.beginPath();ctx.ellipse(x+25-legSwing,drawY+37,10,5,0,0,Math.PI*2);ctx.fill();
+ } else {
+   // duck pose - crouch
+   ctx.beginPath();ctx.moveTo(x+10,drawY+10);ctx.lineTo(x+5,drawY+30);ctx.stroke();
+   ctx.beginPath();ctx.moveTo(x+22,drawY+10);ctx.lineTo(x+30,drawY+30);ctx.stroke();
+ }
 
- // body - blue shirt with J
- ctx.fillStyle='#2196F3';ctx.fillRect(x+5,y+15,25,22);
- ctx.fillStyle='white';ctx.font='bold 16px Arial';ctx.fillText('J',x+14,y+31);
+ // body
+ ctx.fillStyle='#2196F3';ctx.fillRect(x+5,drawY,25,jolly.ducking?15:22);
+ if(!jolly.ducking){ctx.fillStyle='white';ctx.font='bold 16px Arial';ctx.fillText('J',x+14,drawY+16);}
 
- // arms - animated
+ // arms
  ctx.strokeStyle='#ffdbac';ctx.lineWidth=5;
- ctx.beginPath();ctx.moveTo(x+8,y+18);ctx.lineTo(x-2+armSwing,y+28);ctx.stroke();
- ctx.beginPath();ctx.moveTo(x+26,y+18);ctx.lineTo(x+32-armSwing,y+28);ctx.stroke();
+ if(!jolly.ducking){
+   ctx.beginPath();ctx.moveTo(x+8,drawY+2);ctx.lineTo(x-2+armSwing,drawY+10);ctx.stroke();
+   ctx.beginPath();ctx.moveTo(x+26,drawY+2);ctx.lineTo(x+32-armSwing,drawY+10);ctx.stroke();
+ }
 
  // head
- ctx.fillStyle='#ffdbac';ctx.beginPath();ctx.arc(x+17,y+8,14,0,Math.PI*2);ctx.fill();
- // hair
- ctx.fillStyle='#333';ctx.beginPath();ctx.arc(x+17,y+2,14,Math.PI,Math.PI*2);ctx.fill();
- ctx.fillRect(x+3,y+2,28,4);
- // eyes
- ctx.fillStyle='white';ctx.beginPath();ctx.arc(x+11,y+9,4,0,Math.PI*2);ctx.arc(x+23,y+9,4,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='black';ctx.beginPath();ctx.arc(x+12,y+10,2,0,Math.PI*2);ctx.arc(x+24,y+10,2,0,Math.PI*2);ctx.fill();
- // smile
- ctx.strokeStyle='#333';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x+17,y+13,5,0.2,Math.PI-0.2);ctx.stroke();
-
- if(!onGround){
-   // jumping pose
-   ctx.fillStyle='white';ctx.font='12px Arial';ctx.fillText('↑',x+30,y);
- }
+ let headY = jolly.ducking? drawY-10 : drawY-12;
+ ctx.fillStyle='#ffdbac';ctx.beginPath();ctx.arc(x+17,headY,12,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#222';ctx.beginPath();ctx.arc(x+17,headY-6,12,Math.PI,Math.PI*2);ctx.fill();
+ ctx.fillStyle='white';ctx.beginPath();ctx.arc(x+11,headY,3.5,0,Math.PI*2);ctx.arc(x+23,headY,3.5,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='black';ctx.beginPath();ctx.arc(x+12,headY+1,1.8,0,Math.PI*2);ctx.arc(x+24,headY+1,1.8,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle='#333';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x+17,headY+4,4,0.2,Math.PI-0.2);ctx.stroke();
 }
 
 function loop(){
  if(gameOver) return;
- frame++;ctx.clearRect(0,0,360,460);
- // clouds
- ctx.fillStyle='white';
- for(let c of [{x:50,y:50},{x:200,y:70},{x:280,y:40}]){ctx.beginPath();ctx.arc(c.x+frame%360*0.1,y=c.y,15,0,Math.PI*2);ctx.arc(c.x+15,y,20,0,Math.PI*2);ctx.arc(c.x+30,y,15,0,Math.PI*2);ctx.fill();}
+ frame++;
+ ctx.clearRect(0,0,360,460);
+ 
+ // speed & level - HARDER every 5 points!
+ level = Math.floor(score/5)+1;
+ baseSpeed = 4.5 + level*0.6;
+ if(frame%10==0) updateUI();
 
  // ground
- ctx.fillStyle='#8BC34A';ctx.fillRect(0,410,360,50);
- ctx.fillStyle='#795548';ctx.fillRect(0,410,360,8);
+ ctx.fillStyle='#7AC74F';ctx.fillRect(0,410,360,50);
+ ctx.fillStyle='#5D4037';ctx.fillRect(0,410,360,8);
 
- jolly.vy+=gravity;jolly.y+=jolly.vy;
- if(jolly.y>=340){jolly.y=340;jolly.vy=0;onGround=true}
+ // physics
+ jolly.vy+=gravity; jolly.y+=jolly.vy;
+ if(jolly.y>=340){jolly.y=340;jolly.vy=0;}
 
  drawJolly(jolly.x,jolly.y);
 
- if(frame>120 && frame%110==0){obstacles.push({x:380,y:370,w:28,h:45,type:Math.random()>0.5?0:1})}
- for(let i=obstacles.length-1;i>=0;i--){
-   let o=obstacles[i];o.x-=4.5;
-   // draw obstacle - rock/crate
-   if(o.type==0){ctx.fillStyle='#555';ctx.fillRect(o.x,o.y,o.w,o.h);ctx.fillStyle='#777';ctx.fillRect(o.x+3,o.y+3,o.w-6,8);}
-   else{ctx.fillStyle='#8D6E63';ctx.fillRect(o.x,o.y,o.w,o.h);ctx.strokeStyle='#5D4037';ctx.lineWidth=2;ctx.strokeRect(o.x,o.y,o.w,o.h);ctx.beginPath();ctx.moveTo(o.x,o.y);ctx.lineTo(o.x+o.w,o.y+o.h);ctx.moveTo(o.x+o.w,o.y);ctx.lineTo(o.x,o.y+o.h);ctx.stroke();}
+ // spawn obstacles - more frequent as level up
+ let spawnRate = Math.max(55, 110 - level*8);
+ if(frame>100 && frame%spawnRate==0){
+   let type = Math.floor(Math.random()*3); // 0=rock low, 1=crate tall, 2=bird flying (must duck)
+   if(type==2 && level<2) type=0; // birds only from level 2
+   obstacles.push({x:380, y: type==2? 300 : type==1? 355 : 370, w: type==2? 35:28, h: type==2? 20: type==1? 55:40, type:type});
+   // spawn coin randomly
+   if(Math.random()>0.4) coins.push({x:385, y: 280+Math.random()*60, r:10, collected:false});
+ }
 
-   if(jolly.x < o.x + o.w-5 && jolly.x + jolly.w > o.x+5 && jolly.y < o.y + o.h && jolly.y + jolly.h > o.y){
-     gameOver=true;
-     ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,360,460);
-     ctx.fillStyle='white';ctx.font='bold 32px Arial';ctx.fillText('GAME OVER!',70,210);
-     ctx.font='20px Arial';ctx.fillText('Score: '+score,130,245);
-     return;
+ // coins
+ for(let i=coins.length-1;i>=0;i--){
+   let c=coins[i]; c.x-=baseSpeed;
+   coinFrame+=0.1;
+   ctx.fillStyle='#FFD700';ctx.beginPath();ctx.arc(c.x,c.y,10,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle='#FFA500';ctx.beginPath();ctx.arc(c.x,c.y,6,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle='white';ctx.font='bold 10px Arial';ctx.fillText('$',c.x-3,c.y+3);
+   if(!c.collected && jolly.x < c.x+10 && jolly.x+35 > c.x-10 && jolly.y < c.y+10 && jolly.y+55 > c.y-10){
+     c.collected=true; score+=2; coins.splice(i,1); updateUI();
+     continue;
    }
-   if(o.x+o.w<0){obstacles.splice(i,1);score++;document.getElementById('score').innerText='Score: '+score}
+   if(c.x<-20) coins.splice(i,1);
+ }
+
+ // obstacles
+ for(let i=obstacles.length-1;i>=0;i--){
+   let o=obstacles[i]; o.x-=baseSpeed;
+   if(o.type==0){ // rock
+     ctx.fillStyle='#555';ctx.beginPath();ctx.moveTo(o.x,o.y+o.h);ctx.lineTo(o.x+o.w/2,o.y);ctx.lineTo(o.x+o.w,o.y+o.h);ctx.fill();
+   } else if(o.type==1){ // tall crate
+     ctx.fillStyle='#8D6E63';ctx.fillRect(o.x,o.y,o.w,o.h);ctx.strokeStyle='#3E2723';ctx.lineWidth=2;ctx.strokeRect(o.x,o.y,o.w,o.h);
+     ctx.beginPath();ctx.moveTo(o.x,o.y);ctx.lineTo(o.x+o.w,o.y+o.h);ctx.moveTo(o.x+o.w,o.y);ctx.lineTo(o.x,o.y+o.h);ctx.stroke();
+   } else { // bird - must DUCK!
+     ctx.fillStyle='#222';ctx.beginPath();ctx.ellipse(o.x+15,o.y+10,18,10,0,0,Math.PI*2);ctx.fill();
+     ctx.fillStyle='#ff4444';ctx.beginPath();ctx.moveTo(o.x+30,o.y+10);ctx.lineTo(o.x+38,o.y+8);ctx.lineTo(o.x+30,o.y+14);ctx.fill();
+     ctx.fillStyle='white';ctx.beginPath();ctx.arc(o.x+20,o.y+6,4,0,Math.PI*2);ctx.fill();
+     ctx.fillStyle='black';ctx.beginPath();ctx.arc(o.x+21,o.y+6,2,0,Math.PI*2);ctx.fill();
+     // wings flapping
+     ctx.fillStyle='#444';ctx.beginPath();ctx.ellipse(o.x+10+Math.sin(frame*0.3)*5,o.y+12,10,4,Math.sin(frame*0.5),0,Math.PI*2);ctx.fill();
+   }
+
+   // collision
+   let jH = jolly.ducking? 35 : 55;
+   let jY = jolly.ducking? jolly.y+20 : jolly.y;
+   if(jolly.x < o.x+o.w-6 && jolly.x+jolly.w > o.x+6 && jY < o.y+o.h && jY+jH > o.y){
+     if(o.type==2 && jolly.ducking){
+       // ducked under bird - safe!
+     } else {
+       lives--; obstacles.splice(i,1); updateUI();
+       if(lives<=0){
+         gameOver=true;
+         ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,360,460);
+         ctx.fillStyle='white';ctx.font='bold 30px Arial';ctx.fillText('GAME OVER!',65,200);
+         ctx.font='20px Arial';ctx.fillText('Level: '+level+'  Score: '+score,75,235);
+         ctx.font='16px Arial';ctx.fillText('You reached Level '+level+'!',85,260);
+         return;
+       } else {
+         // hit effect
+         ctx.fillStyle='rgba(255,0,0,0.4)';ctx.fillRect(0,0,360,460);
+       }
+       continue;
+     }
+   }
+   if(o.x+o.w<0){ obstacles.splice(i,1); score++; }
  }
  requestAnimationFrame(loop);
 }
 startGame();
 document.getElementById('jumpBtn').addEventListener('touchstart',e=>{e.preventDefault();jump();});
-document.getElementById('jumpBtn').addEventListener('click',jump);
+document.getElementById('duckBtn').addEventListener('touchstart',e=>{e.preventDefault();duckOn();});
+document.getElementById('duckBtn').addEventListener('touchend',e=>{e.preventDefault();duckOff();});
+document.getElementById('duckBtn').addEventListener('mousedown',duckOn);
+document.getElementById('duckBtn').addEventListener('mouseup',duckOff);
 canvas.addEventListener('touchstart',e=>{e.preventDefault();jump();});
-document.addEventListener('keydown',e=>{if(e.code=='Space')jump();});
+document.addEventListener('keydown',e=>{
+ if(e.code=='Space' || e.code=='ArrowUp') jump();
+ if(e.code=='ArrowDown'){duckOn();} 
+});
+document.addEventListener('keyup',e=>{if(e.code=='ArrowDown') duckOff();});
 </script>
 </body>
 </html>
